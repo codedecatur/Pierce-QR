@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fill out this form</title>
+    <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="flex justify-center items-center w-screen h-64 flex-col">
+        <h1 class="underline text-lg">Sign In</h1>
+        <form action="/submit" method="post" class="p-8 flex justify-center items-center flex-col">
+            <div class="pb-6">
+                <label for="name">Full Name</label><br>
+                <input type="text" name="name" class="border-blue-500 rounded bg-transparent border"><br>
+            </div>
+            <input type="submit" class="bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white py-2 px-4 border border-blue-500 hover:border-transparent rounded">    
+        </form>
+        
+    </div>
+</body>
+</html>
