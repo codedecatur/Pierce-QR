@@ -9,9 +9,11 @@ const {google} = require('googleapis');
 
 let config;
 let baseUrl;
+let usedTimestamps = [];
+
 fs.readFile('config.json', (err, content) => {
 	if (err) return console.log('Error loading config file:', err);
-	config = content;
+	config = JSON.parse(content);
 	baseUrl = config.baseUrl;
 });
 
@@ -133,11 +135,9 @@ app.get("/attendance/:day", (req, res) => {
     return res.render("pages/attendance.ejs", {time: day})
 });
 
-app.get("/", (req, res) => {
+app.get("/qr", (req, res) => {
     let day = Date.now();
-    console.log(day);
     authorize(JSON.parse(googleAuth), getSpreadsheet('1laoC-XoDDj13oUOY4894ke38vLkBopcDGOYiKVQLYC8', 'A1:A10'));
-    authorize(JSON.parse(googleAuth), addDataToSpreadsheet('1laoC-XoDDj13oUOY4894ke38vLkBopcDGOYiKVQLYC8', 'A1:A1', [[Date(day).toString(), "name"]]));
     let attendanceURL;
     QRCode.toDataURL(`${baseUrl}/attendance/${day}`, function (err, url) {
         attendanceURL = url;
@@ -145,9 +145,17 @@ app.get("/", (req, res) => {
     })
 })
 
+app.get("/", (req, res) => {
+	return res.render('pages/index.ejs');
+});
+
 app.post("/submit", (req, res) => {
-    console.log(req.body)
-    return res.render('pages/confirmation.ejs')
+	let name = req.body.name;
+	let date = req.headers.referer.split("attendance/").pop();
+	if (usedTimestamps.includes(date)) return res.redirect(`${baseUrl}`);
+    authorize(JSON.parse(googleAuth), addDataToSpreadsheet('1laoC-XoDDj13oUOY4894ke38vLkBopcDGOYiKVQLYC8', 'A1:A1', [[Date(date).toString(), name]]));
+   	usedTimestamps.push(date);
+	return res.render('pages/confirmation.ejs')
 });
 
 
