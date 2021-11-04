@@ -8,13 +8,14 @@ const readline = require('readline');
 const {google} = require('googleapis');
 
 let config;
-let baseUrl;
 let usedTimestamps = [];
 
-fs.readFile('config.json', (err, content) => {
-	if (err) return console.log('Error loading config file:', err);
-	config = JSON.parse(content);
-	baseUrl = config.baseUrl;
+const configPromise = new Promise((resolve, reject) => {
+  fs.readFile('config.json', (err, content) => {
+    if (err) return console.log('Error loading config file:', err);
+    config = JSON.parse(content);
+    resolve(config);
+  });
 });
 
 // Google Sheets Hook Setup
@@ -113,10 +114,6 @@ function addDataToSpreadsheet(spreadsheetId, range, data) {
 }
 
 // SSL Setup
-var privateKey = fs.readFileSync('cert/server.key');
-var certificate = fs.readFileSync('cert/server.crt');
-
-var credentials = {key: privateKey, cert: certificate};
 const app = express();
 app.set('view engine', 'ejs');
 app.use(express.json()); 
@@ -135,33 +132,39 @@ app.get("/attendance/:day", (req, res) => {
     return res.render("pages/attendance.ejs", {time: day})
 });
 
-app.get("/qr", (req, res) => {
+configPromise.then((config) => {
+  console.log(config)
+  if (!config.local) {
+    var privateKey = fs.readFileSync('cert/server.key');
+    var certificate = fs.readFileSync('cert/server.crt');
+    var credentials = {key: privateKey, cert: certificate};
+  }
+  app.get("/qr", (req, res) => {
     let day = Date.now();
     authorize(JSON.parse(googleAuth), getSpreadsheet('1laoC-XoDDj13oUOY4894ke38vLkBopcDGOYiKVQLYC8', 'A1:A10'));
     let attendanceURL;
-    QRCode.toDataURL(`${baseUrl}/attendance/${day}`, function (err, url) {
+    QRCode.toDataURL(`${config.baseUrl}/attendance/${day}`, function (err, url) {
         attendanceURL = url;
         return res.render('pages/index.ejs', {url: attendanceURL});
     })
+  })
+
+  app.post("/submit", (req, res) => {
+    let name = req.body.name;
+    let date = req.headers.referer.split("attendance/").pop();
+    if (usedTimestamps.includes(date)) return res.render('pages/used.ejs');
+      authorize(JSON.parse(googleAuth), addDataToSpreadsheet('1laoC-XoDDj13oUOY4894ke38vLkBopcDGOYiKVQLYC8', 'A1:A1', [[Date(date).toString(), name]]));
+      usedTimestamps.push(date);
+    return res.render('pages/confirmation.ejs')
+  });
+
+
+  var httpServer = http.createServer(app);
+  let httpsServer;
+  if (!config.local) {
+    httpsServer = https.createServer(credentials, app);
+    httpsServer.listen(443);
+  }
+  let httpIp = config.local ? 8000 : 80;
+  httpServer.listen(httpIp);
 })
-
-app.get("/", (req, res) => {
-	return res.render('pages/index.ejs');
-});
-
-app.post("/submit", (req, res) => {
-	let name = req.body.name;
-	let date = req.headers.referer.split("attendance/").pop();
-	if (usedTimestamps.includes(date)) return res.redirect(`${baseUrl}`);
-    authorize(JSON.parse(googleAuth), addDataToSpreadsheet('1laoC-XoDDj13oUOY4894ke38vLkBopcDGOYiKVQLYC8', 'A1:A1', [[Date(date).toString(), name]]));
-   	usedTimestamps.push(date);
-	return res.render('pages/confirmation.ejs')
-});
-
-
-var httpServer = http.createServer(app);
-var httpsServer = https.createServer(credentials, app);
-
-httpServer.listen(80);
-httpsServer.listen(443);
-
